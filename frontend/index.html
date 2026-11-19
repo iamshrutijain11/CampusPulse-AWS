@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusPulse AWS — Smart Campus Live Operations Suite | Techfest IIT Bombay</title>
+  <meta name="description" content="Serverless campus operations suite for Library Seat Availability, Mess Feedback & Food Waste Reduction, and Hostel Wi-Fi Diagnostic Heatmaps built on AWS Free Tier.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- TOP APP HEADER -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand-logo">
+        <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
+          <rect width="32" height="32" rx="8" fill="#232F3E"/>
+          <path d="M7 21C11.5 24 20.5 24 25 21" stroke="#FF9900" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M23 19.5L25.5 21.5L22.5 23" stroke="#FF9900" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="16" cy="11" r="5" stroke="#00A4A6" stroke-width="2.5"/>
+          <circle cx="16" cy="11" r="2" fill="#00A4A6"/>
+        </svg>
+      </div>
+      <div class="brand-info">
+        <div class="brand-title">CampusPulse <span class="badge-aws">AWS</span></div>
+        <div class="brand-sub">IIT Bombay • Techfest AWS Shipit Challenge</div>
+      </div>
+    </div>
+
+    <!-- MODULE SWITCHER TABS -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="library">
+        <span class="tab-icon">📚</span>
+        <span>LibSpace (Seats)</span>
+      </button>
+      <button class="nav-tab" data-tab="mess">
+        <span class="tab-icon">🍽️</span>
+        <span>MessPulse (Meals)</span>
+      </button>
+      <button class="nav-tab" data-tab="wifi">
+        <span class="tab-icon">📶</span>
+        <span>Wi-Fi Sentinel</span>
+      </button>
+      <button class="nav-tab tab-arch" data-tab="architecture">
+        <span class="tab-icon">☁️</span>
+        <span>AWS Cloud Inspector</span>
+      </button>
+    </nav>
+
+    <!-- HEADER RIGHT CONTROLS -->
+    <div class="header-right">
+      <div class="campus-status-pill">
+        <span class="pulse-green"></span>
+        <span id="campus-time-live">Powai: 10:00 AM</span>
+      </div>
+      <button class="btn-aws-arch" id="btn-toggle-arch-drawer" title="Inspect Live AWS Architecture">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+          <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+          <line x1="6" y1="6" x2="6.01" y2="6"/>
+          <line x1="6" y1="18" x2="6.01" y2="18"/>
+        </svg>
+        <span>AWS Inspector</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- LIVE TOAST NOTIFICATION -->
+  <div class="toast-box" id="toast-box"></div>
+
+  <!-- MAIN VIEWPORT CONTAINER -->
+  <main class="app-main">
+
+    <!-- ========================================================
+         TAB 1: LIBSPACE (LIBRARY SEATS & STUDY PODS)
+    ======================================================== -->
+    <section class="tab-pane active" id="pane-library">
+      <!-- Overview Banner -->
+      <div class="module-hero">
+        <div class="module-title-wrap">
+          <h2>Central Library Live Occupancy Radar</h2>
+          <p>Real-time desk tracking, quiet zone filters, and instant 45-minute seat reservations powered by Amazon DynamoDB & AWS Lambda.</p>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat-card">
+            <span class="stat-big stat-green" id="stat-seats-avail">38</span>
+            <span class="stat-desc">Seats Available</span>
+          </div>
+          <div class="hero-stat-card">
+            <span class="stat-big stat-amber" id="stat-seats-reserved">12</span>
+            <span class="stat-desc">Reserved (Held)</span>
+          </div>
+          <div class="hero-stat-card">
+            <span class="stat-big stat-red" id="stat-seats-occupied">46</span>
+            <span class="stat-desc">Occupied Desks</span>
+          </div>
+          <div class="hero-stat-card">
+            <span class="stat-big stat-blue">96</span>
+            <span class="stat-desc">Total Capacity</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls & Filter Toolbar -->
+      <div class="toolbar-box">
+        <div class="filter-group">
+          <label>Floor Selection:</label>
+          <div class="pill-group" id="floor-filter">
+            <button class="filter-pill active" data-floor="1">1st Floor (General Study)</button>
+            <button class="filter-pill" data-floor="2">2nd Floor (Quiet Silent Zone)</button>
+            <button class="filter-pill" data-floor="3">3rd Floor (Group Tech Lab)</button>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label>Amenities:</label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="filter-socket"> ⚡ Power Socket
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="filter-monitor"> 🖥️ External Display
+          </label>
+        </div>
+
+        <div class="toolbar-actions">
+          <button class="btn-refresh" id="btn-refresh-seats">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+            <span>Sync DynamoDB</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="seat-legend">
+        <span class="legend-item"><span class="legend-dot dot-free"></span> Available</span>
+        <span class="legend-item"><span class="legend-dot dot-reserved"></span> Reserved (45m Hold)</span>
+        <span class="legend-item"><span class="legend-dot dot-occupied"></span> Occupied</span>
+        <span class="legend-item"><span class="legend-tag">⚡</span> Has Socket</span>
+        <span class="legend-item"><span class="legend-tag">🖥️</span> Dual Monitor</span>
+      </div>
+
+      <!-- Interactive 2D Seat Matrix Floor Plan -->
+      <div class="floor-matrix-container">
+        <div class="floor-header">
+          <span class="floor-name" id="floor-name-display">1st Floor — Central Reading Hall</span>
+          <span class="floor-crowd" id="floor-density-display">Crowd Density: Moderate (58%)</span>
+        </div>
+
+        <div class="seat-grid" id="seat-grid">
+          <!-- Dynamically populated via app.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB 2: MESSPULSE (CAMPUS MESS FEEDBACK & FOOD WASTE)
+    ======================================================== -->
+    <section class="tab-pane" id="pane-mess">
+      <div class="module-hero">
+        <div class="module-title-wrap">
+          <h2>Hostel MessPulse & Food Waste Analytics</h2>
+          <p>Meal RSVP to prevent overcooking, live dish sentiment reviews via Amazon Comprehend, and automated daily waste reduction metrics.</p>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat-card">
+            <span class="stat-big stat-green" id="stat-waste-saved">240 kg</span>
+            <span class="stat-desc">Food Saved This Week</span>
+          </div>
+          <div class="hero-stat-card">
+            <span class="stat-big stat-blue" id="stat-rsvp-count">642</span>
+            <span class="stat-desc">Students Dining Today</span>
+          </div>
+          <div class="hero-stat-card">
+            <span class="stat-big stat-amber" id="stat-avg-rating">4.2 ★</span>
+            <span class="stat-desc">Average Quality Score</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mess-layout-grid">
+        <!-- Left: Today's Menu & RSVP Card -->
+        <div class="card-box">
+          <div class="card-header-styled">
+            <div class="header-icon">🍽️</div>
+            <div>
+              <h3>Daily Meal Planner & Student RSVP</h3>
+              <p>Mark your dining status 2 hours in advance to help cooks prepare exact portions.</p>
+            </div>
+          </div>
+
+          <div class="meal-tabs" id="meal-type-selector">
+            <button class="meal-tab" data-meal="breakfast">Breakfast</button>
+            <button class="meal-tab active" data-meal="lunch">Lunch</button>
+            <button class="meal-tab" data-meal="snacks">Snacks</button>
+            <button class="meal-tab" data-meal="dinner">Dinner</button>
+          </div>
+
+          <div class="menu-display-card">
+            <div class="menu-time" id="menu-timing">12:30 PM – 02:30 PM</div>
+            <ul class="menu-items-list" id="menu-items-list">
+              <!-- Dynamically populated -->
+            </ul>
+          </div>
+
+          <!-- Student RSVP Action Box -->
+          <div class="rsvp-action-box">
+            <h4>Will you be dining for this meal?</h4>
+            <div class="rsvp-buttons">
+              <button class="btn-rsvp btn-rsvp-yes active" id="btn-rsvp-yes">
+                <span>✅ Yes, I Will Eat</span>
+              </button>
+              <button class="btn-rsvp btn-rsvp-no" id="btn-rsvp-no">
+                <span>❌ Skipping / Eating Outside</span>
+              </button>
+            </div>
+            <div class="rsvp-impact-note" id="rsvp-impact-text">
+              🌱 Your RSVP helps prevent approximately 350g of cooked food wastage!
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Real-time Dish Feedback & Sentiment Review -->
+        <div class="card-box">
+          <div class="card-header-styled">
+            <div class="header-icon">💬</div>
+            <div>
+              <h3>Instant Dish Feedback & Sentiment Analysis</h3>
+              <p>Student complaints and compliments analyzed automatically with AWS NLP.</p>
+            </div>
+          </div>
+
+          <form class="feedback-form" id="form-mess-feedback">
+            <div class="form-group">
+              <label>Select Hostel Mess:</label>
+              <select class="styled-input" id="select-hostel">
+                <option value="H12">Hostel 12 (Central Dining)</option>
+                <option value="H13">Hostel 13 & 14</option>
+                <option value="H15">Hostel 15 (Girls Wing)</option>
+                <option value="H16">Hostel 16 & 18</option>
+                <option value="H2">Hostel 2 (Pioneer)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Rate Overall Quality:</label>
+              <div class="star-rating" id="star-rating">
+                <span data-val="1">★</span>
+                <span data-val="2">★</span>
+                <span data-val="3">★</span>
+                <span data-val="4" class="selected">★</span>
+                <span data-val="5">★</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Quick Tags (Sentiment Keywords):</label>
+              <div class="tag-selector" id="tag-selector">
+                <span class="tag-chip" data-sentiment="POSITIVE">Fresh & Warm</span>
+                <span class="tag-chip" data-sentiment="POSITIVE">Great Taste</span>
+                <span class="tag-chip" data-sentiment="NEGATIVE">Too Salty</span>
+                <span class="tag-chip" data-sentiment="NEGATIVE">Chapati Cold</span>
+                <span class="tag-chip" data-sentiment="NEGATIVE">Refill Delay</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Detailed Comments for Mess Council:</label>
+              <textarea class="styled-input styled-textarea" id="text-feedback" placeholder="e.g. Dal tadka was great today, but rice ran out at 1:45 PM..."></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary-aws" id="btn-submit-feedback">
+              <span>Submit to AWS Comprehend & DynamoDB</span>
+            </button>
+          </form>
+
+          <!-- Recent Feedback Live Stream -->
+          <div class="recent-feedbacks">
+            <h4>Live Verified Student Feedback Stream</h4>
+            <div class="feedback-stream" id="feedback-stream">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB 3: WI-FI SENTINEL (HOSTEL CONNECTIVITY & OUTAGE MAP)
+    ======================================================== -->
+    <section class="tab-pane" id="pane-wifi">
+      <div class="module-hero">
+        <div class="module-title-wrap">
+          <h2>Hostel Wi-Fi Sentinel & Diagnostic Heatmap</h2>
+          <p>Crowdsourced latency monitoring, automatic access point degradation detection, and instant maintenance ticket dispatch via Amazon SNS.</p>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat-card">
+            <span class="stat-big stat-green">14 / 16</span>
+            <span class="stat-desc">Hostels Online</span>
+          </div>
+          <div class="hero-stat-card">
+            <span class="stat-big stat-amber">2</span>
+            <span class="stat-desc">Partial Degradation</span>
+          </div>
+          <div class="hero-stat-card">
+            <span class="stat-big stat-blue" id="stat-avg-ping">18 ms</span>
+            <span class="stat-desc">Avg Campus Ping</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="wifi-layout-grid">
+        <!-- Live Diagnostic Speed Tester -->
+        <div class="card-box">
+          <div class="card-header-styled">
+            <div class="header-icon">⚡</div>
+            <div>
+              <h3>Browser Diagnostic Network Test</h3>
+              <p>Ping campus gateway & measure latency against AWS ap-south-1 (Mumbai).</p>
+            </div>
+          </div>
+
+          <div class="speed-test-gauge">
+            <div class="gauge-dial">
+              <div class="gauge-center-val" id="gauge-speed-val">--</div>
+              <div class="gauge-unit" id="gauge-speed-unit">Mbps</div>
+            </div>
+            <div class="speed-metrics-row">
+              <div class="s-metric">
+                <span class="s-label">LATENCY</span>
+                <span class="s-val" id="val-ping">-- ms</span>
+              </div>
+              <div class="s-metric">
+                <span class="s-label">JITTER</span>
+                <span class="s-val" id="val-jitter">-- ms</span>
+              </div>
+              <div class="s-metric">
+                <span class="s-label">AWS REGION</span>
+                <span class="s-val text-aws">ap-south-1</span>
+              </div>
+            </div>
+            <button class="btn-primary-aws w-full" id="btn-run-speedtest">
+              <span>RUN REAL-TIME DIAGNOSTIC PING</span>
+            </button>
+          </div>
+
+          <!-- Report Outage Form -->
+          <div class="outage-report-box">
+            <h4>Experienced an Access Point Drop?</h4>
+            <div class="report-inputs">
+              <select class="styled-input" id="report-hostel">
+                <option value="H1">Hostel 1</option>
+                <option value="H2">Hostel 2</option>
+                <option value="H3">Hostel 3</option>
+                <option value="H12">Hostel 12</option>
+                <option value="H14">Hostel 14</option>
+                <option value="H16">Hostel 16</option>
+                <option value="H18">Hostel 18</option>
+              </select>
+              <input type="text" class="styled-input" id="report-wing" placeholder="Wing / Room (e.g. B-Wing 3rd Floor)">
+              <button class="btn-danger" id="btn-report-outage">Report to CC & SNS</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Campus Hostel Heatmap Grid -->
+        <div class="card-box">
+          <div class="card-header-styled">
+            <div class="header-icon">🗺️</div>
+            <div>
+              <h3>IIT Bombay Hostel Wi-Fi Diagnostic Heatmap</h3>
+              <p>Aggregated telemetry logs from student device pings across campus.</p>
+            </div>
+          </div>
+
+          <div class="heatmap-legend">
+            <span><span class="heat-dot heat-good"></span> Good (&gt;50 Mbps)</span>
+            <span><span class="heat-dot heat-fair"></span> Fair (15–50 Mbps)</span>
+            <span><span class="heat-dot heat-poor"></span> Poor (&lt;15 Mbps)</span>
+            <span><span class="heat-dot heat-down"></span> Outage Reported</span>
+          </div>
+
+          <div class="hostel-grid" id="hostel-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB 4: AWS ARCHITECTURE & CLOUD INSPECTOR
+    ======================================================== -->
+    <section class="tab-pane" id="pane-architecture">
+      <div class="module-hero">
+        <div class="module-title-wrap">
+          <h2>AWS Cloud Architecture & Free Tier Validation</h2>
+          <p>Transparent architectural breakdown demonstrating 100% serverless, zero-maintenance, and permanent $0 Free Tier cost efficiency.</p>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat-card">
+            <span class="stat-big stat-green">100%</span>
+            <span class="stat-desc">Serverless Architecture</span>
+          </div>
+          <div class="hero-stat-card">
+            <span class="stat-big stat-blue">$0.00</span>
+            <span class="stat-desc">Monthly AWS Bill</span>
+          </div>
+          <div class="hero-stat-card">
+            <span class="stat-big stat-amber">&lt; 35ms</span>
+            <span class="stat-desc">P95 Lambda Execution</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Architecture Flow Diagram Card -->
+      <div class="card-box mb-6">
+        <div class="card-header-styled">
+          <div class="header-icon">⚡</div>
+          <div>
+            <h3>Serverless Service Flow Pipeline</h3>
+            <p>Every transaction is event-driven with Amazon S3, CloudFront, API Gateway, Lambda, and DynamoDB.</p>
+          </div>
+        </div>
+
+        <div class="arch-pipeline-visual">
+          <div class="pipeline-node">
+            <div class="node-icon icon-s3">S3</div>
+            <div class="node-name">Amazon S3</div>
+            <div class="node-role">Single Page App Hosting</div>
+            <div class="node-free">5 GB Free Tier</div>
+          </div>
+          <div class="pipeline-arrow">➔</div>
+          <div class="pipeline-node">
+            <div class="node-icon icon-cf">CF</div>
+            <div class="node-name">Amazon CloudFront</div>
+            <div class="node-role">Global Edge Caching & SSL</div>
+            <div class="node-free">1 TB Data Out Free</div>
+          </div>
+          <div class="pipeline-arrow">➔</div>
+          <div class="pipeline-node">
+            <div class="node-icon icon-apigw">API</div>
+            <div class="node-name">Amazon API Gateway</div>
+            <div class="node-role">REST API Router</div>
+            <div class="node-free">1M Requests Free</div>
+          </div>
+          <div class="pipeline-arrow">➔</div>
+          <div class="pipeline-node">
+            <div class="node-icon icon-lambda">λ</div>
+            <div class="node-name">AWS Lambda</div>
+            <div class="node-role">Node.js 20 Serverless Handlers</div>
+            <div class="node-free">1M Invocations Free</div>
+          </div>
+          <div class="pipeline-arrow">➔</div>
+          <div class="pipeline-node">
+            <div class="node-icon icon-ddb">DDB</div>
+            <div class="node-name">Amazon DynamoDB</div>
+            <div class="node-role">NoSQL State & Cache</div>
+            <div class="node-free">25 GB Storage Free</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Free Tier Breakdown Table -->
+      <div class="card-box">
+        <h3>AWS Free Tier Usage Audit</h3>
+        <table class="styled-table">
+          <thead>
+            <tr>
+              <th>AWS Service</th>
+              <th>CampusPulse Function</th>
+              <th>Free Tier Allowance</th>
+              <th>Project Consumption</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>AWS Lambda</strong></td>
+              <td>Seat reservations, mess sentiment, Wi-Fi telemetry</td>
+              <td>1,000,000 requests / month</td>
+              <td>~35,000 requests (3.5%)</td>
+              <td><span class="status-tag tag-safe">100% FREE</span></td>
+            </tr>
+            <tr>
+              <td><strong>Amazon DynamoDB</strong></td>
+              <td>Real-time seat occupancy, daily menus, speed logs</td>
+              <td>25 GB storage + 25 WCU / 25 RCU</td>
+              <td>0.08 GB (&lt;1%)</td>
+              <td><span class="status-tag tag-safe">100% FREE</span></td>
+            </tr>
+            <tr>
+              <td><strong>Amazon S3</strong></td>
+              <td>Static frontend web bundle & assets</td>
+              <td>5 GB standard storage</td>
+              <td>4.2 MB (0.08%)</td>
+              <td><span class="status-tag tag-safe">100% FREE</span></td>
+            </tr>
+            <tr>
+              <td><strong>Amazon CloudFront</strong></td>
+              <td>Edge delivery, HTTPS, and sub-10ms caching</td>
+              <td>1 TB data transfer out / month</td>
+              <td>~500 MB (0.05%)</td>
+              <td><span class="status-tag tag-safe">100% FREE</span></td>
+            </tr>
+            <tr>
+              <td><strong>Amazon SNS</strong></td>
+              <td>Hostel Wi-Fi outage alerts to maintenance staff</td>
+              <td>1,000,000 mobile push / 1,000 emails</td>
+              <td>~40 notifications</td>
+              <td><span class="status-tag tag-safe">100% FREE</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================
+       SEAT RESERVATION MODAL
+  ======================================================== -->
+  <div class="modal-backdrop" id="modal-reservation">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-seat-title">Reserve Seat 1-A04</h3>
+        <button class="modal-close" id="btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-seat-meta">
+          <div class="meta-item"><span class="m-label">ZONE:</span> <span class="m-val" id="modal-zone-val">Quiet Study</span></div>
+          <div class="meta-item"><span class="m-label">AMENITIES:</span> <span class="m-val" id="modal-amenities-val">⚡ Socket, 🖥️ Dual Display</span></div>
+          <div class="meta-item"><span class="m-label">HOLD DURATION:</span> <span class="m-val">45 Minutes Max</span></div>
+        </div>
+
+        <form id="form-confirm-seat">
+          <div class="form-group">
+            <label>Student Roll Number / LDAP ID:</label>
+            <input type="text" class="styled-input" id="input-roll-no" placeholder="e.g. 23B0342" required>
+          </div>
+          <button type="submit" class="btn-primary-aws w-full">
+            <span>Confirm Instant Reservation (DynamoDB)</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       AWS CLOUD TELEMETRY INSPECTOR DRAWER
+  ======================================================== -->
+  <aside class="arch-drawer" id="arch-drawer">
+    <div class="drawer-header">
+      <div class="d-title">
+        <span class="aws-icon-orange">☁️</span>
+        <span>AWS Cloud Telemetry Inspector</span>
+      </div>
+      <button class="modal-close" id="btn-close-drawer">&times;</button>
+    </div>
+    <div class="drawer-body">
+      <div class="drawer-section">
+        <h4>REAL-TIME API TELEMETRY</h4>
+        <div class="telemetry-stat-row">
+          <span>Last Invocation:</span>
+          <span class="text-aws" id="drawer-last-api">GET /api/v1/library/seats</span>
+        </div>
+        <div class="telemetry-stat-row">
+          <span>Latency:</span>
+          <span class="text-green" id="drawer-latency">18.4 ms</span>
+        </div>
+        <div class="telemetry-stat-row">
+          <span>Backend Handler:</span>
+          <span id="drawer-handler">arn:aws:lambda:ap-south-1:librarySeats</span>
+        </div>
+        <div class="telemetry-stat-row">
+          <span>DynamoDB Read Units:</span>
+          <span>0.5 RCU (Free Tier)</span>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>LIVE JSON RESPONSE PAYLOAD</h4>
+        <pre class="json-viewer" id="drawer-json">
+{
+  "status": "success",
+  "campus": "IIT Bombay",
+  "service": "AWS Lambda Node20",
+  "seats_free": 38,
+  "cache_hit": true
+}
+        </pre>
+      </div>
+
+      <div class="drawer-section">
+        <h4>SERVERLESS ENDPOINTS AUDIT</h4>
+        <div class="endpoint-list">
+          <div class="ep-item"><span class="ep-badge ep-get">GET</span> <code>/api/seats</code> ➔ Lambda</div>
+          <div class="ep-item"><span class="ep-badge ep-post">POST</span> <code>/api/reserve</code> ➔ DynamoDB</div>
+          <div class="ep-item"><span class="ep-badge ep-post">POST</span> <code>/api/mess/feedback</code> ➔ Comprehend</div>
+          <div class="ep-item"><span class="ep-badge ep-post">POST</span> <code>/api/wifi/report</code> ➔ SNS Alert</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

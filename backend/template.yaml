@@ -1,0 +1,177 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  CampusPulse AWS — Production Serverless Campus Operations Infrastructure
+  Built for Techfest IIT Bombay & AWS Shipit Challenge 2026.
+  100% AWS Free Tier compliant.
+
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 256
+    Runtime: nodejs20.x
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        SEATS_TABLE_NAME: !Ref SeatsTable
+        MESS_TABLE_NAME: !Ref MessTable
+        WIFI_TABLE_NAME: !Ref WifiTable
+        OUTAGE_SNS_TOPIC_ARN: !Ref OutageAlertsTopic
+
+Resources:
+  # =========================================================================
+  # 1. SERVERLESS API GATEWAY (HTTP API - 1M requests/mo free)
+  # =========================================================================
+  CampusPulseHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: CampusPulseHttpApi
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # =========================================================================
+  # 2. AMAZON DYNAMODB TABLES (25GB storage free permanently)
+  # =========================================================================
+  SeatsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CampusPulse_Seats
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  MessTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CampusPulse_Mess
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  WifiTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CampusPulse_WifiLogs
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  # =========================================================================
+  # 3. AMAZON SNS TOPIC (1M notifications free/mo)
+  # =========================================================================
+  OutageAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: CampusPulse_OutageAlerts
+      DisplayName: CampusPulse Network Outage Alerts
+
+  # =========================================================================
+  # 4. AWS LAMBDA FUNCTIONS (1M invocations free/mo)
+  # =========================================================================
+  LibrarySeatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: librarySeats.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SeatsTable
+      Events:
+        GetSeats:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CampusPulseHttpApi
+            Path: /api/v1/library/seats
+            Method: GET
+        ReserveSeat:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CampusPulseHttpApi
+            Path: /api/v1/library/reserve
+            Method: POST
+
+  MessFeedbackFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: messFeedback.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MessTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - comprehend:DetectSentiment
+              Resource: '*'
+      Events:
+        PostFeedback:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CampusPulseHttpApi
+            Path: /api/v1/mess/feedback
+            Method: POST
+        PostRsvp:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CampusPulseHttpApi
+            Path: /api/v1/mess/rsvp
+            Method: POST
+
+  WifiDiagnosticFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: wifiDiagnostic.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WifiTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt OutageAlertsTopic.TopicName
+      Events:
+        PostPing:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CampusPulseHttpApi
+            Path: /api/v1/wifi/ping
+            Method: POST
+        PostOutage:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CampusPulseHttpApi
+            Path: /api/v1/wifi/outage-report
+            Method: POST
+
+Outputs:
+  ApiEndpoint:
+    Description: HTTP API Gateway endpoint URL for CampusPulse
+    Value: !Sub 'https://${CampusPulseHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  SeatsTableName:
+    Description: DynamoDB Table Name for Library Seats
+    Value: !Ref SeatsTable
+  OutageTopicArn:
+    Description: SNS Topic ARN for Hostel Wi-Fi Alerts
+    Value: !Ref OutageAlertsTopic
